@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overdrive Syndicate: Neon Hijack - Cinematic Edition</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020205;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            pointer-events: none;
+        }
+        h1 { margin: 0 0 5px 0; font-size: 24px; letter-spacing: 2px; }
+        p { margin: 0; color: #ff00ff; text-shadow: 0 0 10px #ff00ff; font-size: 13px; }
+        #status { margin-top: 8px; color: #00ff66; text-shadow: 0 0 10px #00ff66; font-weight: bold; font-size: 14px; }
+        #stats { margin-top: 4px; color: #ffff00; font-size: 15px; }
+        
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 2, 8, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-family: monospace;
+            display: none;
+        }
+        #overlay h2 { font-size: 42px; margin-bottom: 10px; text-shadow: 0 0 20px #ff0055; }
+        #overlay button {
+            padding: 12px 28px;
+            background: #00ffff;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 0 0 20px #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>OVERDRIVE SYNDICATE</h1>
+        <p>[W,A,S,D] Drive | [SPACE] Machine Gun | [F] Drop Proximity Bomb | [SHIFT] Nitro | [E] Shield</p>
+        <div id="status">SHIELD: READY | NITRO: READY</div>
+        <div id="stats">PLAYER HEALTH: 100 | TARGETS ELIMINATED: 0/3</div>
+    </div>
+
+    <div id="overlay">
+        <h2 id="overlay-title">MISSION OVER</h2>
+        <p id="overlay-desc" style="margin-bottom: 20px; color: #fff;">Combat results processed.</p>
+        <button onclick="location.reload()">RE-ENGAGE MISSION</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- 1. REALISTIC SCENE & LIGHTING SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x030308);
+        scene.fog = new THREE.FogExp2(0x030308, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        document.body.appendChild(renderer.domElement);
+
+        // Cinematic Lighting
+        const ambientLight = new THREE.AmbientLight(0x1a1a3a, 0.8);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0x00ffff, 1.5);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 150;
+        const d = 30;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // --- 2. HIGHWAY & REALISTIC ENVIRONMENT ---
+        const roadGeometry = new THREE.PlaneGeometry(44, 3000);
+        const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x0c0c14, roughness: 0.6, metalness: 0.2 });
+        const road = new THREE.Mesh(roadGeometry, roadMaterial);
+        road.rotation.x = -Math.PI / 2;
+        road.receiveShadow = true;
+        scene.add(road);
+
+        // Glowing lane markings & barriers
+        for (let i = -1500; i < 1500; i += 25) {
+            const stripeGeo = new THREE.BoxGeometry(0.3, 0.08, 5);
+            const stripeMat = new THREE.MeshBasicMaterial({ color: 0xff00aa });
+            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+            stripe.position.set(0, 0.04, i);
+            scene.add(stripe);
+
+            // Side barriers
+            const barrierGeo = new THREE.BoxGeometry(0.8, 1.2, 4);
+            const barrierMat = new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.8, roughness: 0.4 });
+            
+            const leftBarrier = new THREE.Mesh(barrierGeo, barrierMat);
+            leftBarrier.position.set(-22, 0.6, i);
+            leftBarrier.castShadow = true;
+            scene.add(leftBarrier);
+
+            const rightBarrier = new THREE.Mesh(barrierGeo, barrierMat);
+            rightBarrier.position.set(22, 0.6, i);
+            rightBarrier.castShadow = true;
+            scene.add(rightBarrier);
+        }
+
+        // --- 3. HIGH-DETAIL PLAYER VEHICLE & GUN MOUNT ---
+        const carGroup = new THREE.Group();
+        
+        const bodyGeo = new THREE.BoxGeometry(2.1, 0.7, 4.4);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, roughness: 0.2, metalness: 0.9 });
+        const carBody = new THREE.Mesh(bodyGeo, bodyMat);
+        carBody.position.y = 0.5;
+        carBody.castShadow = true;
+        carGroup.add(carBody);
+
+        const cabinGeo = new THREE.BoxGeometry(1.6, 0.55, 2.2);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x080810, roughness: 0.1, metalness: 0.5 });
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        cabin.position.set(0, 1.0, -0.2);
+        cabin.castShadow = true;
+        carGroup.add(cabin);
+
+        // Mounted Turret Barrel
+        const gunGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8);
+        const gunMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.2 });
+        const turretGun = new THREE.Mesh(gunGeo, gunMat);
+        turretGun.rotation.x = Math.PI / 2;
+        turretGun.position.set(0, 1.3, -1.2);
+        carGroup.add(turretGun);
+
+        // Shield Mesh
+        const shieldGeo = new THREE.SphereGeometry(2.8, 24, 24);
+        const shieldMat = new THREE.MeshStandardMaterial({ color: 0x0088ff, transparent: true, opacity: 0.25, roughness: 0.1, metalness: 0.8 });
+        const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+        shieldMesh.position.y = 0.8;
+        shieldMesh.visible = false;
+        carGroup.add(shieldMesh);
+
+        scene.add(carGroup);
+        carGroup.position.set(0, 0, 0);
+
+        // --- 4. ENEMY CHASER VEHICLE ---
+        const enemyGroup = new THREE.Group();
+        const enemyBodyMat = new THREE.MeshStandardMaterial({ color: 0xff1133, roughness: 0.3, metalness: 0.8 });
+        const enemyBody = new THREE.Mesh(bodyGeo, enemyBodyMat);
+        enemyBody.position.y = 0.5;
+        enemyBody.castShadow = true;
+        enemyGroup.add(enemyBody);
+
+        const enemyCabin = new THREE.Mesh(cabinGeo, cabinMat);
+        enemyCabin.position.set(0, 1.0, -0.2);
+        enemyGroup.add(enemyCabin);
+        scene.add(enemyGroup);
+        enemyGroup.position.set(6, 0, -80);
+
+        // --- 5. GAMESTATE & ARSENAL CONTAINERS ---
+        const keys = { forward: false, backward: false, left: false, right: false, nitro: false };
+        let speed = 0;
+        let steering = 0;
+        let maxSpeed = 0.85;
+        const acceleration = 0.022;
+        const deceleration = 0.016;
+
+        const bullets = [];
+        const bombs = [];
+        const particles = [];
+
+        let playerHealth = 100;
+        let enemyHealth = 4;
+        let score = 0;
+        let gameOver = false;
+
+        let shieldActive = false;
+        let shieldTimer = 0;
+        let shieldCooldown = 0;
+        let recoilTimer = 0;
+
+        window.addEventListener('keydown', (e) => updateKey(e, true));
+        window.addEventListener('keyup', (e) => updateKey(e, false));
+
+        function updateKey(e, isDown) {
+            if (gameOver) return;
+            switch(e.code) {
+                case 'KeyW': case 'ArrowUp': keys.forward = isDown; break;
+                case 'KeyS': case 'ArrowDown': keys.backward = isDown; break;
+                case 'KeyA': case 'ArrowLeft': keys.left = isDown; break;
+                case 'KeyD': case 'ArrowRight': keys.right = isDown; break;
+                case 'ShiftLeft': case 'ShiftRight': keys.nitro = isDown; break;
+                case 'KeyE': 
+                    if (isDown && shieldCooldown <= 0 && !shieldActive) {
+                        shieldActive = true;
+                        shieldTimer = 180;
+                        shieldMesh.visible = true;
+                        shieldCooldown = 350;
+                    }
+                    break;
+                case 'Space':
+                    if (isDown) fireMachineGun();
+                    break;
+                case 'KeyF':
+                    if (isDown) dropBomb();
+                    break;
+            }
+        }
+
+        // --- 6. WEAPON EFFECTS & RECOIL ---
+        function fireMachineGun() {
+            recoilTimer = 6; // Visual recoil kick frames
+
+            // Muzzle flash particle effect
+            const flashGeo = new THREE.SphereGeometry(0.3, 8, 8);
+            const flashMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const flash = new THREE.Mesh(flashGeo, flashMat);
+            flash.position.copy(carGroup.position);
+            flash.position.y += 1.3;
+            flash.position.z -= 2.0;
+            scene.add(flash);
+            setTimeout(() => scene.remove(flash), 40);
+
+            // Projectile bullet
+            const bGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 6);
+            bGeo.rotateX(Math.PI / 2);
+            const bMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const bullet = new THREE.Mesh(bGeo, bMat);
+            bullet.position.copy(carGroup.position);
+            bullet.position.y += 1.3;
+            bullet.position.z -= 1.8;
+            scene.add(bullet);
+            bullets.push({ mesh: bullet, speed: 2.2 });
+        }
+
+        function dropBomb() {
+            const bombGeo = new THREE.DodecahedronGeometry(0.4);
+            const bombMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff0000, roughness: 0.2 });
+            const bomb = new THREE.Mesh(bombGeo, bombMat);
+            bomb.position.copy(carGroup.position);
+            bomb.position.y += 0.4;
+            bomb.position.z += 1.5; // Dropped from rear
+            scene.add(bomb);
+            bombs.push({ mesh: bomb, fuse: 120 });
+        }
+
+        function spawnImpactSparks(pos) {
+            for (let i = 0; i < 8; i++) {
+                const pGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+                const pMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+                const particle = new THREE.Mesh(pGeo, pMat);
+                particle.position.copy(pos);
+                scene.add(particle);
+                particles.push({
+                    mesh: particle,
+                    velocity: new THREE.Vector3((Math.random()-0.5)*0.3, Math.random()*0.3, (Math.random()-0.5)*0.3),
+                    life: 25
+                });
+            }
+        }
+
+        function triggerGameOver(win) {
+            gameOver = true;
+            const overlay = document.getElementById('overlay');
+            const title = document.getElementById('overlay-title');
+            const desc = document.getElementById('overlay-desc');
+            
+            if (win) {
+                title.innerText = "MISSION SUCCESS";
+                title.style.color = "#00ff66";
+                desc.innerText = "All syndicate targets eliminated.";
+            } else {
+                title.innerText = "MISSION FAILED";
+                title.style.color = "#ff0055";
+                desc.innerText = "Vehicle total loss sustained.";
+            }
+            overlay.style.display = "flex";
+        }
+
+        // --- 7. MAIN ANIMATION & PHYSICS LOOP ---
+        function animate() {
+            if (!gameOver) requestAnimationFrame(animate);
+
+            maxSpeed = keys.nitro ? 1.5 : 0.85;
+            const currentAccel = keys.nitro ? acceleration * 1.6 : acceleration;
+
+            if (keys.forward) speed = Math.min(speed + currentAccel, maxSpeed);
+            else if (keys.backward) speed = Math.max(speed - acceleration, -maxSpeed * 0.4);
+            else {
+                if (speed > 0) speed = Math.max(speed - deceleration, 0);
+                if (speed < 0) speed = Math.min(speed + deceleration, 0);
+            }
+
+            if (keys.left) steering = Math.min(steering + 0.035, 0.06);
+            else if (keys.right) steering = Math.max(steering - 0.035, -0.06);
+            else steering *= 0.88;
+
+            carGroup.rotation.y += steering * (speed / maxSpeed);
+            carGroup.translateZ(-speed);
+            carGroup.position.x = Math.max(Math.min(carGroup.position.x, 19), -19);
+
+            // Recoil kick effect on car body
+            if (recoilTimer > 0) {
+                recoilTimer--;
+                carGroup.position.z += 0.04;
+            }
+
+            // Shield timers
+            if (shieldActive) {
+                shieldTimer--;
+                if (shieldTimer <= 0) {
+                    shieldActive = false;
+                    shieldMesh.visible = false;
+                }
+            }
+            if (shieldCooldown > 0) shieldCooldown--;
+
+            // Enemy AI Chasing Logic
+            const enemySpeed = 0.6;
+            enemyGroup.position.z -= enemySpeed - speed;
+            if (enemyGroup.position.x < carGroup.position.x) enemyGroup.position.x += 0.06;
+            if (enemyGroup.position.x > carGroup.position.x) enemyGroup.position.x -= 0.06;
+
+            // Ram collision check
+            if (carGroup.position.distanceTo(enemyGroup.position) < 2.6) {
+                if (!shieldActive) {
+                    playerHealth -= 1.5;
+                    if (playerHealth <= 0) triggerGameOver(false);
+                }
+                enemyGroup.position.z -= 12;
+            }
+
+            if (enemyGroup.position.z > carGroup.position.z + 20) {
+                enemyGroup.position.z = carGroup.position.z - 160;
+                enemyGroup.position.x = (Math.random() - 0.5) * 32;
+            }
+
+            // UI Refresh
+            let statusText = shieldActive ? `SHIELD: ACTIVE (${Math.ceil(shieldTimer/60)}s) | ` : (shieldCooldown > 0 ? "SHIELD: COOLDOWN | " : "SHIELD: READY [E] | ");
+            statusText += keys.nitro ? "NITRO: ENGAGED 🔥" : "NITRO: READY [SHIFT]";
+            document.getElementById('status').innerText = statusText;
+            document.getElementById('stats').innerText = `PLAYER HEALTH: ${Math.max(0, Math.round(playerHealth))} | TARGETS ELIMINATED: ${score}/3`;
+
+            // Cinematic Camera Follow with Dynamic Lag
+            camera.position.x += (carGroup.position.x * 0.5 - camera.position.x) * 0.1;
+            camera.position.y = carGroup.position.y + 4.5;
+            camera.position.z = carGroup.position.z + 9.5;
+            camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z - 4);
+
+            // Update Bullets & Collisions
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.mesh.position.z -= b.speed;
+
+                if (b.mesh.position.distanceTo(enemyGroup.position) < 2.2) {
+                    enemyHealth--;
+                    spawnImpactSparks(b.mesh.position);
+                    scene.remove(b.mesh);
+                    bullets.splice(i, 1);
+
+                    if (enemyHealth <= 0) {
+                        score++;
+                        enemyHealth = 4;
+                        enemyGroup.position.z = carGroup.position.z - 160;
+                        enemyGroup.position.x = (Math.random() - 0.5) * 32;
+                        if (score >= 3) triggerGameOver(true);
+                    }
+                    continue;
+                }
+
+                if (b.mesh.position.z < carGroup.position.z - 220) {
+                    scene.remove(b.mesh);
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update Bombs
+            for (let i = bombs.length - 1; i >= 0; i--) {
+                let bm = bombs[i];
+                bm.fuse--;
+                if (bm.fuse <= 0 || bm.mesh.position.distanceTo(enemyGroup.position) < 3.0) {
+                    spawnImpactSparks(bm.mesh.position);
+                    if (bm.mesh.position.distanceTo(enemyGroup.position) < 4.0) {
+                        enemyHealth -= 2;
+                    }
+                    scene.remove(bm.mesh);
+                    bombs.splice(i, 1);
+                }
+            }
+
+            // Update Particle FX
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.mesh.position.add(p.velocity);
+                p.life--;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
