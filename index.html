@@ -3,431 +3,454 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overdrive Syndicate: Neon Hijack - Cinematic Edition</title>
+    <title>Police Pursuit: Syndicate - Production Build</title>
     <style>
+        :root {
+            --primary: #00ffff;
+            --accent: #ff00ff;
+            --danger: #ff0055;
+            --success: #00ff66;
+            --dark: #050510;
+        }
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #020205;
+            background-color: var(--dark);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+        #menu, #overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #050510, #1a1a3a, #0f2027);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            color: #fff;
+        }
+        #overlay { display: none; z-index: 20; background: rgba(2, 2, 8, 0.95); }
+        h1, h2 { letter-spacing: 3px; text-transform: uppercase; }
+        #menu h1 { font-size: 48px; color: var(--primary); text-shadow: 0 0 20px var(--primary); margin-bottom: 10px; }
+        #menu p, #overlay p { font-size: 16px; color: var(--accent); text-shadow: 0 0 10px var(--accent); margin-bottom: 30px; }
+        .btn {
+            padding: 15px 35px;
+            margin: 10px;
+            background: rgba(0, 255, 255, 0.15);
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 25px var(--primary);
+            transform: scale(1.05);
         }
         #ui {
             position: absolute;
             top: 20px;
             left: 20px;
-            color: #00ffff;
-            text-shadow: 0 0 10px #00ffff;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary);
             pointer-events: none;
+            display: none;
+            z-index: 5;
         }
-        h1 { margin: 0 0 5px 0; font-size: 24px; letter-spacing: 2px; }
-        p { margin: 0; color: #ff00ff; text-shadow: 0 0 10px #ff00ff; font-size: 13px; }
-        #status { margin-top: 8px; color: #00ff66; text-shadow: 0 0 10px #00ff66; font-weight: bold; font-size: 14px; }
+        #ui h2 { margin: 0 0 5px 0; font-size: 20px; }
+        #ui p { margin: 0; color: var(--accent); font-size: 13px; }
+        #status { margin-top: 8px; color: var(--success); font-weight: bold; font-size: 14px; }
         #stats { margin-top: 4px; color: #ffff00; font-size: 15px; }
-        
-        #overlay {
+        #touch-controls {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(2, 2, 8, 0.9);
+            bottom: 30px;
+            width: 100%;
+            display: none;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .touch-group { display: flex; gap: 15px; pointer-events: auto; }
+        .t-btn {
+            width: 70px; height: 70px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            color: #fff;
-            font-family: monospace;
-            display: none;
-        }
-        #overlay h2 { font-size: 42px; margin-bottom: 10px; text-shadow: 0 0 20px #ff0055; }
-        #overlay button {
-            padding: 12px 28px;
-            background: #00ffff;
-            border: none;
-            font-weight: bold;
             cursor: pointer;
-            font-size: 16px;
-            box-shadow: 0 0 20px #00ffff;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
         }
+        .t-btn:active { background: rgba(0, 255, 255, 0.6); }
     </style>
 </head>
 <body>
+
+    <div id="menu">
+        <h1>POLICE PURSUIT: SYNDICATE</h1>
+        <p>Select Input Controller Scheme</p>
+        <button class="btn" onclick="GameApp.init('keyboard')">KEYBOARD & MOUSE [W,A,S,D]</button>
+        <button class="btn" onclick="GameApp.init('touch')">TOUCH SCREEN [ON-SCREEN UI]</button>
+        <button class="btn" onclick="GameApp.init('controller')">GAMEPAD / CONTROLLER</button>
+    </div>
+
     <div id="ui">
-        <h1>OVERDRIVE SYNDICATE</h1>
-        <p>[W,A,S,D] Drive | [SPACE] Machine Gun | [F] Drop Proximity Bomb | [SHIFT] Nitro | [E] Shield</p>
-        <div id="status">SHIELD: READY | NITRO: READY</div>
-        <div id="stats">PLAYER HEALTH: 100 | TARGETS ELIMINATED: 0/3</div>
+        <h2>POLICE INTERCEPTOR UNIT</h2>
+        <p>[W/S] Throttle/Brake | [A/D] Proportional Steer | [SPACE] Gun | [F] Bomb | [H] Horn</p>
+        <div id="status">STATUS: PURSUIT ACTIVE</div>
+        <div id="stats">HEALTH: 100 | TARGETS NEUTRALIZED: 0/3</div>
+    </div>
+
+    <div id="touch-controls">
+        <div class="touch-group">
+            <div class="t-btn" id="btn-left">◀</div>
+            <div class="t-btn" id="btn-right">▶</div>
+        </div>
+        <div class="touch-group">
+            <div class="t-btn" id="btn-accel">▲</div>
+            <div class="t-btn" id="btn-fire">🔫</div>
+            <div class="t-btn" id="btn-bomb">💣</div>
+        </div>
     </div>
 
     <div id="overlay">
         <h2 id="overlay-title">MISSION OVER</h2>
-        <p id="overlay-desc" style="margin-bottom: 20px; color: #fff;">Combat results processed.</p>
-        <button onclick="location.reload()">RE-ENGAGE MISSION</button>
+        <p id="overlay-desc">Pursuit report compiled successfully.</p>
+        <button class="btn" onclick="location.reload()">RE-ENGAGE PURSUIT</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // --- 1. REALISTIC SCENE & LIGHTING SETUP ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x030308);
-        scene.fog = new THREE.FogExp2(0x030308, 0.012);
+        /**
+         * Professional Sound Management System using Web Audio API
+         */
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+            }
+            play(type) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                const now = this.ctx.currentTime;
 
-        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        document.body.appendChild(renderer.domElement);
-
-        // Cinematic Lighting
-        const ambientLight = new THREE.AmbientLight(0x1a1a3a, 0.8);
-        scene.add(ambientLight);
-
-        const dirLight = new THREE.DirectionalLight(0x00ffff, 1.5);
-        dirLight.position.set(20, 40, 20);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.camera.near = 0.5;
-        dirLight.shadow.camera.far = 150;
-        const d = 30;
-        dirLight.shadow.camera.left = -d;
-        dirLight.shadow.camera.right = d;
-        dirLight.shadow.camera.top = d;
-        dirLight.shadow.camera.bottom = -d;
-        scene.add(dirLight);
-
-        // --- 2. HIGHWAY & REALISTIC ENVIRONMENT ---
-        const roadGeometry = new THREE.PlaneGeometry(44, 3000);
-        const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x0c0c14, roughness: 0.6, metalness: 0.2 });
-        const road = new THREE.Mesh(roadGeometry, roadMaterial);
-        road.rotation.x = -Math.PI / 2;
-        road.receiveShadow = true;
-        scene.add(road);
-
-        // Glowing lane markings & barriers
-        for (let i = -1500; i < 1500; i += 25) {
-            const stripeGeo = new THREE.BoxGeometry(0.3, 0.08, 5);
-            const stripeMat = new THREE.MeshBasicMaterial({ color: 0xff00aa });
-            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-            stripe.position.set(0, 0.04, i);
-            scene.add(stripe);
-
-            // Side barriers
-            const barrierGeo = new THREE.BoxGeometry(0.8, 1.2, 4);
-            const barrierMat = new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.8, roughness: 0.4 });
-            
-            const leftBarrier = new THREE.Mesh(barrierGeo, barrierMat);
-            leftBarrier.position.set(-22, 0.6, i);
-            leftBarrier.castShadow = true;
-            scene.add(leftBarrier);
-
-            const rightBarrier = new THREE.Mesh(barrierGeo, barrierMat);
-            rightBarrier.position.set(22, 0.6, i);
-            rightBarrier.castShadow = true;
-            scene.add(rightBarrier);
-        }
-
-        // --- 3. HIGH-DETAIL PLAYER VEHICLE & GUN MOUNT ---
-        const carGroup = new THREE.Group();
-        
-        const bodyGeo = new THREE.BoxGeometry(2.1, 0.7, 4.4);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, roughness: 0.2, metalness: 0.9 });
-        const carBody = new THREE.Mesh(bodyGeo, bodyMat);
-        carBody.position.y = 0.5;
-        carBody.castShadow = true;
-        carGroup.add(carBody);
-
-        const cabinGeo = new THREE.BoxGeometry(1.6, 0.55, 2.2);
-        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x080810, roughness: 0.1, metalness: 0.5 });
-        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-        cabin.position.set(0, 1.0, -0.2);
-        cabin.castShadow = true;
-        carGroup.add(cabin);
-
-        // Mounted Turret Barrel
-        const gunGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8);
-        const gunMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.2 });
-        const turretGun = new THREE.Mesh(gunGeo, gunMat);
-        turretGun.rotation.x = Math.PI / 2;
-        turretGun.position.set(0, 1.3, -1.2);
-        carGroup.add(turretGun);
-
-        // Shield Mesh
-        const shieldGeo = new THREE.SphereGeometry(2.8, 24, 24);
-        const shieldMat = new THREE.MeshStandardMaterial({ color: 0x0088ff, transparent: true, opacity: 0.25, roughness: 0.1, metalness: 0.8 });
-        const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-        shieldMesh.position.y = 0.8;
-        shieldMesh.visible = false;
-        carGroup.add(shieldMesh);
-
-        scene.add(carGroup);
-        carGroup.position.set(0, 0, 0);
-
-        // --- 4. ENEMY CHASER VEHICLE ---
-        const enemyGroup = new THREE.Group();
-        const enemyBodyMat = new THREE.MeshStandardMaterial({ color: 0xff1133, roughness: 0.3, metalness: 0.8 });
-        const enemyBody = new THREE.Mesh(bodyGeo, enemyBodyMat);
-        enemyBody.position.y = 0.5;
-        enemyBody.castShadow = true;
-        enemyGroup.add(enemyBody);
-
-        const enemyCabin = new THREE.Mesh(cabinGeo, cabinMat);
-        enemyCabin.position.set(0, 1.0, -0.2);
-        enemyGroup.add(enemyCabin);
-        scene.add(enemyGroup);
-        enemyGroup.position.set(6, 0, -80);
-
-        // --- 5. GAMESTATE & ARSENAL CONTAINERS ---
-        const keys = { forward: false, backward: false, left: false, right: false, nitro: false };
-        let speed = 0;
-        let steering = 0;
-        let maxSpeed = 0.85;
-        const acceleration = 0.022;
-        const deceleration = 0.016;
-
-        const bullets = [];
-        const bombs = [];
-        const particles = [];
-
-        let playerHealth = 100;
-        let enemyHealth = 4;
-        let score = 0;
-        let gameOver = false;
-
-        let shieldActive = false;
-        let shieldTimer = 0;
-        let shieldCooldown = 0;
-        let recoilTimer = 0;
-
-        window.addEventListener('keydown', (e) => updateKey(e, true));
-        window.addEventListener('keyup', (e) => updateKey(e, false));
-
-        function updateKey(e, isDown) {
-            if (gameOver) return;
-            switch(e.code) {
-                case 'KeyW': case 'ArrowUp': keys.forward = isDown; break;
-                case 'KeyS': case 'ArrowDown': keys.backward = isDown; break;
-                case 'KeyA': case 'ArrowLeft': keys.left = isDown; break;
-                case 'KeyD': case 'ArrowRight': keys.right = isDown; break;
-                case 'ShiftLeft': case 'ShiftRight': keys.nitro = isDown; break;
-                case 'KeyE': 
-                    if (isDown && shieldCooldown <= 0 && !shieldActive) {
-                        shieldActive = true;
-                        shieldTimer = 180;
-                        shieldMesh.visible = true;
-                        shieldCooldown = 350;
-                    }
-                    break;
-                case 'Space':
-                    if (isDown) fireMachineGun();
-                    break;
-                case 'KeyF':
-                    if (isDown) dropBomb();
-                    break;
+                if (type === 'gun') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(350, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now); osc.stop(now + 0.08);
+                } else if (type === 'bomb') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.exponentialRampToValueAtTime(15, now + 0.45);
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.45);
+                    osc.start(now); osc.stop(now + 0.45);
+                } else if (type === 'horn') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(460, now);
+                    osc.frequency.setValueAtTime(580, now + 0.15);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now); osc.stop(now + 0.4);
+                }
             }
         }
 
-        // --- 6. WEAPON EFFECTS & RECOIL ---
-        function fireMachineGun() {
-            recoilTimer = 6; // Visual recoil kick frames
+        /**
+         * Production-Grade Game Architecture Controller
+         */
+        class GameEngine {
+            constructor() {
+                this.sound = new SoundManager();
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.isRunning = false;
+                this.clock = new THREE.Clock();
 
-            // Muzzle flash particle effect
-            const flashGeo = new THREE.SphereGeometry(0.3, 8, 8);
-            const flashMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
-            const flash = new THREE.Mesh(flashGeo, flashMat);
-            flash.position.copy(carGroup.position);
-            flash.position.y += 1.3;
-            flash.position.z -= 2.0;
-            scene.add(flash);
-            setTimeout(() => scene.remove(flash), 40);
+                this.player = null;
+                this.targets = [];
+                this.traffic = [];
+                this.projectiles = [];
 
-            // Projectile bullet
-            const bGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 6);
-            bGeo.rotateX(Math.PI / 2);
-            const bMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            const bullet = new THREE.Mesh(bGeo, bMat);
-            bullet.position.copy(carGroup.position);
-            bullet.position.y += 1.3;
-            bullet.position.z -= 1.8;
-            scene.add(bullet);
-            bullets.push({ mesh: bullet, speed: 2.2 });
-        }
+                this.input = { forward: false, backward: false, left: false, right: false };
+                this.steerInput = 0;
+                this.speed = 0;
+                this.maxSpeed = 1.0;
+                this.health = 100;
+                this.score = 0;
+            }
 
-        function dropBomb() {
-            const bombGeo = new THREE.DodecahedronGeometry(0.4);
-            const bombMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff0000, roughness: 0.2 });
-            const bomb = new THREE.Mesh(bombGeo, bombMat);
-            bomb.position.copy(carGroup.position);
-            bomb.position.y += 0.4;
-            bomb.position.z += 1.5; // Dropped from rear
-            scene.add(bomb);
-            bombs.push({ mesh: bomb, fuse: 120 });
-        }
+            init(mode) {
+                document.getElementById('menu').style.display = 'none';
+                document.getElementById('ui').style.display = 'block';
+                if (mode === 'touch') document.getElementById('touch-controls').style.display = 'flex';
 
-        function spawnImpactSparks(pos) {
-            for (let i = 0; i < 8; i++) {
-                const pGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-                const pMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
-                const particle = new THREE.Mesh(pGeo, pMat);
-                particle.position.copy(pos);
-                scene.add(particle);
-                particles.push({
-                    mesh: particle,
-                    velocity: new THREE.Vector3((Math.random()-0.5)*0.3, Math.random()*0.3, (Math.random()-0.5)*0.3),
-                    life: 25
+                this.sound.init();
+                this.setupScene();
+                this.setupEnvironment();
+                this.setupVehicles();
+                this.setupListeners();
+
+                this.isRunning = true;
+                this.animate();
+            }
+
+            setupScene() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x87ceeb);
+                this.scene.fog = new THREE.FogExp2(0x87ceeb, 0.005);
+
+                this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+                
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.2;
+                document.body.appendChild(this.renderer.domElement);
+
+                const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+                this.scene.add(ambient);
+
+                const sun = new THREE.DirectionalLight(0xfffaed, 1.6);
+                sun.position.set(50, 100, 50);
+                sun.castShadow = true;
+                sun.shadow.mapSize.width = 2048;
+                sun.shadow.mapSize.height = 2048;
+                this.scene.add(sun);
+            }
+
+            setupEnvironment() {
+                // Highway
+                const roadGeo = new THREE.PlaneGeometry(50, 5000);
+                const roadMat = new THREE.MeshStandardMaterial({ color: 0x14141c, roughness: 0.5, metalness: 0.1 });
+                const road = new THREE.Mesh(roadGeo, roadMat);
+                road.rotation.x = -Math.PI / 2;
+                road.receiveShadow = true;
+                this.scene.add(road);
+
+                // Skyscrapers
+                for (let i = -2000; i < 2000; i += 70) {
+                    const height = 60 + Math.random() * 100;
+                    const bGeo = new THREE.BoxGeometry(30, height, 50);
+                    const bMat = new THREE.MeshStandardMaterial({ color: 0x22303c, roughness: 0.3, metalness: 0.5 });
+                    
+                    const leftB = new THREE.Mesh(bGeo, bMat);
+                    leftB.position.set(-42, height / 2, i);
+                    leftB.castShadow = true; leftB.receiveShadow = true;
+                    this.scene.add(leftB);
+
+                    const rightB = new THREE.Mesh(bGeo, bMat);
+                    rightB.position.set(42, height / 2, i);
+                    rightB.castShadow = true; rightB.receiveShadow = true;
+                    this.scene.add(rightB);
+                }
+            }
+
+            createSleekCar(color, isPolice = false) {
+                const group = new THREE.Group();
+                const bodyGeo = new THREE.BoxGeometry(2.0, 0.55, 4.4);
+                const bodyMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.15, metalness: 0.9 });
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                body.position.y = 0.45;
+                body.castShadow = true;
+                group.add(body);
+
+                const cabinGeo = new THREE.BoxGeometry(1.5, 0.45, 2.0);
+                const cabinMat = new THREE.MeshStandardMaterial({ color: 0x050508, roughness: 0.05, metalness: 0.95 });
+                const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+                cabin.position.set(0, 0.85, -0.15);
+                group.add(cabin);
+
+                const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 24);
+                wheelGeo.rotateZ(Math.PI / 2);
+                const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+                [[-1.0, 0.35, 1.3], [1.0, 0.35, 1.3], [-1.0, 0.35, -1.3], [1.0, 0.35, -1.3]].forEach(pos => {
+                    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                    wheel.position.set(...pos);
+                    group.add(wheel);
+                });
+
+                if (isPolice) {
+                    const barGeo = new THREE.BoxGeometry(1.0, 0.12, 0.35);
+                    const barMat = new THREE.MeshBasicMaterial({ color: 0x0066ff });
+                    const bar = new THREE.Mesh(barGeo, barMat);
+                    bar.position.set(0, 1.15, 0);
+                    group.add(bar);
+                }
+                return group;
+            }
+
+            setupVehicles() {
+                this.player = this.createSleekCar(0x0a0a1a, true);
+                this.scene.add(this.player);
+                this.player.position.set(0, 0, 0);
+
+                const theftColors = [0xffcc00, 0x111111, 0x00cc44];
+                for (let i = 0; i < 3; i++) {
+                    const tCar = this.createSleekCar(theftColors[i], false);
+                    tCar.position.set((Math.random() - 0.5) * 22, 0, -100 - (i * 80));
+                    this.scene.add(tCar);
+                    this.targets.push(tCar);
+                }
+
+                const trafficColors = [0xffffff, 0xff0033, 0x00aaff, 0xff6600];
+                for (let i = 0; i < 10; i++) {
+                    const t = this.createSleekCar(trafficColors[i % trafficColors.length], false);
+                    t.position.set((Math.random() - 0.5) * 36, 0, -220 - (i * 45));
+                    this.scene.add(t);
+                    this.traffic.push(t);
+                }
+            }
+
+            setupListeners() {
+                window.addEventListener('keydown', (e) => this.handleKey(e, true));
+                window.addEventListener('keyup', (e) => this.handleKey(e, false));
+
+                const bindTouch = (id, action) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.addEventListener('touchstart', (e) => { e.preventDefault(); action(true); });
+                    el.addEventListener('touchend', (e) => { e.preventDefault(); action(false); });
+                };
+
+                bindTouch('btn-left', (val) => this.input.left = val);
+                bindTouch('btn-right', (val) => this.input.right = val);
+                bindTouch('btn-accel', (val) => this.input.forward = val);
+                document.getElementById('btn-fire').addEventListener('click', () => this.fireWeapon('gun'));
+                document.getElementById('btn-bomb').addEventListener('click', () => this.fireWeapon('bomb'));
+
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
                 });
             }
-        }
 
-        function triggerGameOver(win) {
-            gameOver = true;
-            const overlay = document.getElementById('overlay');
-            const title = document.getElementById('overlay-title');
-            const desc = document.getElementById('overlay-desc');
-            
-            if (win) {
-                title.innerText = "MISSION SUCCESS";
-                title.style.color = "#00ff66";
-                desc.innerText = "All syndicate targets eliminated.";
-            } else {
-                title.innerText = "MISSION FAILED";
-                title.style.color = "#ff0055";
-                desc.innerText = "Vehicle total loss sustained.";
-            }
-            overlay.style.display = "flex";
-        }
-
-        // --- 7. MAIN ANIMATION & PHYSICS LOOP ---
-        function animate() {
-            if (!gameOver) requestAnimationFrame(animate);
-
-            maxSpeed = keys.nitro ? 1.5 : 0.85;
-            const currentAccel = keys.nitro ? acceleration * 1.6 : acceleration;
-
-            if (keys.forward) speed = Math.min(speed + currentAccel, maxSpeed);
-            else if (keys.backward) speed = Math.max(speed - acceleration, -maxSpeed * 0.4);
-            else {
-                if (speed > 0) speed = Math.max(speed - deceleration, 0);
-                if (speed < 0) speed = Math.min(speed + deceleration, 0);
-            }
-
-            if (keys.left) steering = Math.min(steering + 0.035, 0.06);
-            else if (keys.right) steering = Math.max(steering - 0.035, -0.06);
-            else steering *= 0.88;
-
-            carGroup.rotation.y += steering * (speed / maxSpeed);
-            carGroup.translateZ(-speed);
-            carGroup.position.x = Math.max(Math.min(carGroup.position.x, 19), -19);
-
-            // Recoil kick effect on car body
-            if (recoilTimer > 0) {
-                recoilTimer--;
-                carGroup.position.z += 0.04;
-            }
-
-            // Shield timers
-            if (shieldActive) {
-                shieldTimer--;
-                if (shieldTimer <= 0) {
-                    shieldActive = false;
-                    shieldMesh.visible = false;
+            handleKey(e, isDown) {
+                if (!this.isRunning) return;
+                switch(e.code) {
+                    case 'KeyW': case 'ArrowUp': this.input.forward = isDown; break;
+                    case 'KeyS': case 'ArrowDown': this.input.backward = isDown; break;
+                    case 'KeyA': case 'ArrowLeft': this.input.left = isDown; break;
+                    case 'KeyD': case 'ArrowRight': this.input.right = isDown; break;
+                    case 'KeyH': if (isDown) this.sound.play('horn'); break;
+                    case 'Space': if (isDown) this.fireWeapon('gun'); break;
+                    case 'KeyF': if (isDown) this.fireWeapon('bomb'); break;
                 }
             }
-            if (shieldCooldown > 0) shieldCooldown--;
 
-            // Enemy AI Chasing Logic
-            const enemySpeed = 0.6;
-            enemyGroup.position.z -= enemySpeed - speed;
-            if (enemyGroup.position.x < carGroup.position.x) enemyGroup.position.x += 0.06;
-            if (enemyGroup.position.x > carGroup.position.x) enemyGroup.position.x -= 0.06;
-
-            // Ram collision check
-            if (carGroup.position.distanceTo(enemyGroup.position) < 2.6) {
-                if (!shieldActive) {
-                    playerHealth -= 1.5;
-                    if (playerHealth <= 0) triggerGameOver(false);
+            fireWeapon(type) {
+                this.sound.play(type);
+                if (type === 'gun') {
+                    const bGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 6);
+                    bGeo.rotateX(Math.PI / 2);
+                    const bMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    const bullet = new THREE.Mesh(bGeo, bMat);
+                    bullet.position.copy(this.player.position);
+                    bullet.position.y += 1.1;
+                    bullet.position.z -= 1.8;
+                    this.scene.add(bullet);
+                    this.projectiles.push({ mesh: bullet, speed: 2.4 });
                 }
-                enemyGroup.position.z -= 12;
             }
 
-            if (enemyGroup.position.z > carGroup.position.z + 20) {
-                enemyGroup.position.z = carGroup.position.z - 160;
-                enemyGroup.position.x = (Math.random() - 0.5) * 32;
+            gameOver(win) {
+                this.isRunning = false;
+                const overlay = document.getElementById('overlay');
+                document.getElementById('overlay-title').innerText = win ? "MISSION SUCCESS" : "MISSION FAILED";
+                document.getElementById('overlay-title').style.color = win ? "#00ff66" : "#ff0055";
+                overlay.style.display = 'flex';
             }
 
-            // UI Refresh
-            let statusText = shieldActive ? `SHIELD: ACTIVE (${Math.ceil(shieldTimer/60)}s) | ` : (shieldCooldown > 0 ? "SHIELD: COOLDOWN | " : "SHIELD: READY [E] | ");
-            statusText += keys.nitro ? "NITRO: ENGAGED 🔥" : "NITRO: READY [SHIFT]";
-            document.getElementById('status').innerText = statusText;
-            document.getElementById('stats').innerText = `PLAYER HEALTH: ${Math.max(0, Math.round(playerHealth))} | TARGETS ELIMINATED: ${score}/3`;
+            animate() {
+                if (!this.isRunning) return;
+                requestAnimationFrame(() => this.animate());
 
-            // Cinematic Camera Follow with Dynamic Lag
-            camera.position.x += (carGroup.position.x * 0.5 - camera.position.x) * 0.1;
-            camera.position.y = carGroup.position.y + 4.5;
-            camera.position.z = carGroup.position.z + 9.5;
-            camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z - 4);
+                // Physics & Kinematics
+                if (this.input.forward) this.speed = Math.min(this.speed + 0.024, this.maxSpeed);
+                else if (this.input.backward) this.speed = Math.max(this.speed - 0.024, -this.maxSpeed * 0.4);
+                else this.speed *= 0.98;
 
-            // Update Bullets & Collisions
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                let b = bullets[i];
-                b.mesh.position.z -= b.speed;
+                const steerRate = 0.03;
+                if (this.input.left) this.steerInput = Math.min(this.steerInput + steerRate, 0.06);
+                else if (this.input.right) this.steerInput = Math.max(this.steerInput - steerRate, -0.06);
+                else this.steerInput *= 0.85;
 
-                if (b.mesh.position.distanceTo(enemyGroup.position) < 2.2) {
-                    enemyHealth--;
-                    spawnImpactSparks(b.mesh.position);
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
+                this.player.rotation.y += this.steerInput * (this.speed / this.maxSpeed);
+                this.player.translateZ(-this.speed);
+                this.player.position.x = Math.max(Math.min(this.player.position.x, 22), -22);
 
-                    if (enemyHealth <= 0) {
-                        score++;
-                        enemyHealth = 4;
-                        enemyGroup.position.z = carGroup.position.z - 160;
-                        enemyGroup.position.x = (Math.random() - 0.5) * 32;
-                        if (score >= 3) triggerGameOver(true);
+                // Targets Loop
+                this.targets.forEach(t => {
+                    t.position.z -= 0.58 - this.speed;
+                    if (t.position.z > this.player.position.z + 20) t.position.z = this.player.position.z - 300;
+                });
+
+                // Traffic Loop
+                this.traffic.forEach(u => {
+                    u.position.z -= 0.45 - this.speed;
+                    if (u.position.z > this.player.position.z + 20) u.position.z = this.player.position.z - 380;
+                });
+
+                // Camera Tracking
+                this.camera.position.x += (this.player.position.x * 0.4 - this.camera.position.x) * 0.1;
+                this.camera.position.y = this.player.position.y + 4.2;
+                this.camera.position.z = this.player.position.z + 9.0;
+                this.camera.lookAt(this.player.position.x, this.player.position.y + 0.8, this.player.position.z - 4);
+
+                // Projectiles Update
+                for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                    let p = this.projectiles[i];
+                    p.mesh.position.z -= p.speed;
+
+                    let hitIndex = this.targets.findIndex(tc => p.mesh.position.distanceTo(tc.position) < 2.5);
+                    if (hitIndex !== -1) {
+                        this.score++;
+                        this.scene.remove(this.targets[hitIndex]);
+                        this.targets.splice(hitIndex, 1);
+                        this.scene.remove(p.mesh);
+                        this.projectiles.splice(i, 1);
+
+                        if (this.score >= 3) this.gameOver(true);
+                        continue;
                     }
-                    continue;
-                }
 
-                if (b.mesh.position.z < carGroup.position.z - 220) {
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
-                }
-            }
-
-            // Update Bombs
-            for (let i = bombs.length - 1; i >= 0; i--) {
-                let bm = bombs[i];
-                bm.fuse--;
-                if (bm.fuse <= 0 || bm.mesh.position.distanceTo(enemyGroup.position) < 3.0) {
-                    spawnImpactSparks(bm.mesh.position);
-                    if (bm.mesh.position.distanceTo(enemyGroup.position) < 4.0) {
-                        enemyHealth -= 2;
+                    if (p.mesh.position.z < this.player.position.z - 200) {
+                        this.scene.remove(p.mesh);
+                        this.projectiles.splice(i, 1);
                     }
-                    scene.remove(bm.mesh);
-                    bombs.splice(i, 1);
                 }
-            }
 
-            // Update Particle FX
-            for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                p.mesh.position.add(p.velocity);
-                p.life--;
-                if (p.life <= 0) {
-                    scene.remove(p.mesh);
-                    particles.splice(i, 1);
-                }
+                document.getElementById('stats').innerText = `HEALTH: ${Math.round(this.health)} | TARGETS NEUTRALIZED: ${this.score}/3`;
+                this.renderer.render(this.scene, this.camera);
             }
-
-            renderer.render(scene, camera);
         }
 
-        animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        const GameApp = new GameEngine();
     </script>
 </body>
 </html>
